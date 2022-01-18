@@ -17,13 +17,18 @@
         <dependency>
             <groupId>com.pro100kryto.server</groupId>
             <artifactId>Server</artifactId>
-            <version>[0.2.0-SNAPSHOT, 0.3.0)</version>
+            <version>[0.3.0, 0.4.0)</version>
         </dependency>
 
         <dependency>
             <groupId>com.pro100kryto.server.services</groupId>
             <artifactId>AuthService-connection</artifactId>
-            <version>0.1</version>
+            <version>[0.1.0, 0.2.0)</version>
+        </dependency>
+        <dependency>
+            <groupId>com.pro100kryto.server.modules</groupId>
+            <artifactId>UserModelModule-connection</artifactId>
+            <version>[0.1.0, 0.2.0)</version>
         </dependency>
     </dependencies>
 </project>
