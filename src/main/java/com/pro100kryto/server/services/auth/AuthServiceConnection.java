@@ -1,7 +1,6 @@
 package com.pro100kryto.server.services.auth;
 
 import com.pro100kryto.server.modules.usermodel.connection.IUserModelData;
-import com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException;
 import com.pro100kryto.server.service.AServiceConnection;
 import com.pro100kryto.server.service.ServiceConnectionParams;
 import com.pro100kryto.server.services.auth.connection.*;
@@ -30,8 +29,8 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
 
             return service.getAuthMap().createConnAndPut(userData);
 
-        } catch (UserNotFoundException userNotFoundException){
-            throw new com.pro100kryto.server.services.auth.connection.UserNotFoundException(
+        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException userNotFoundException){
+            throw new UserNotFoundException(
                     userNotFoundException.getKey(),
                     userNotFoundException.getVal()
             );
@@ -52,9 +51,16 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
 
         try {
             final IUserModelData userData = service.getUserModel().getUserByKeyVal(key, val);
+            if (!userData.checkPass(pass)) {
+                throw new WrongUserPassException(userData.getUserId());
+            }
 
             return service.getAuthMap().createConnAndPut(userData);
 
+        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException userNotFoundException) {
+            throw new UserNotFoundException(
+                    userNotFoundException.getKey(), userNotFoundException.getVal()
+            );
 
         } catch (AuthorizationException authorizationException){
             throw authorizationException;

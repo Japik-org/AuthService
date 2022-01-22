@@ -27,6 +27,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
 
     @Override
     protected void setupSettingsBeforeInit() throws Throwable {
+        settings.put(BaseServiceSettings.KEY_CONNECTION_MULTIPLE_ENABLED, false);
         settings.put(BaseServiceSettings.KEY_CONNECTION_CREATE_AFTER_INIT_ENABLED, true);
 
         super.setupSettingsBeforeInit();
