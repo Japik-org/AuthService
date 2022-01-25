@@ -1,19 +1,23 @@
 package com.pro100kryto.server.services.auth;
 
+import com.pro100kryto.server.module.IModuleConnectionSafe;
 import com.pro100kryto.server.modules.usermodel.connection.IUserModelData;
+import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
 import com.pro100kryto.server.services.auth.connection.IUserConn;
-import com.pro100kryto.server.services.auth.connection.UserAlreadyAuthorizedException;
-import lombok.Getter;
-import lombok.Setter;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.rmi.RemoteException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 public final class AuthMap implements IUserConnCallback {
+    private final IModuleConnectionSafe<ICryptModuleConnection> signCryptModule;
+
     private final IntObjectHashMap<IUserConn> connIdUserConnMap;
     private final LongObjectHashMap< IntObjectHashMap<IUserConn> > userIdUserConnMap;
 
@@ -23,10 +27,8 @@ public final class AuthMap implements IUserConnCallback {
 
     private final ReentrantLock lock = new ReentrantLock();
 
-    @Getter @Setter
-    private boolean allowMulticonn = false;
-
-    public AuthMap(int capacity) {
+    public AuthMap(IModuleConnectionSafe<ICryptModuleConnection> signCryptModule, int capacity) {
+        this.signCryptModule = signCryptModule;
         this.capacity = capacity;
         connIdUserConnMap = new IntObjectHashMap<>(capacity);
         userIdUserConnMap = new LongObjectHashMap<>(capacity);
@@ -73,7 +75,7 @@ public final class AuthMap implements IUserConnCallback {
         }
     }
 
-    public IUserConn createConnAndPut(IUserModelData userModelData) throws UserAlreadyAuthorizedException {
+    public IUserConn createConnAndPut(IUserModelData userModelData) throws RemoteException {
         if (counter.get() == capacity){
             throw new IllegalStateException();
         }
@@ -81,22 +83,30 @@ public final class AuthMap implements IUserConnCallback {
         lock.lock();
         try {
 
-            if (!allowMulticonn && userIdUserConnMap.containsKey(userModelData.getUserId())) {
-                throw new UserAlreadyAuthorizedException(userIdUserConnMap.get(userModelData.getUserId()).get(0));
-            }
+            final int connId = connIdCounter.getAndIncrement();
 
             final IUserConn userConn = new UserConnFromUserModelData(
-                    connIdCounter.getAndIncrement(),
+                    this,
+                    connId,
                     userModelData,
-                    this
+                    getSignCrypt().combineSalt(
+                            ByteBuffer.allocate(Integer.SIZE/8)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
+                                    .putInt(connId)
+                                    .array(),
+                            ByteBuffer.allocate(Long.SIZE/8)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
+                                    .putLong(userModelData.getUserId())
+                                    .array()
+                    )
             );
 
-            connIdUserConnMap.put(userConn.getConnId(), userConn);
+            connIdUserConnMap.put(connId, userConn);
             if (userIdUserConnMap.containsKey(userModelData.getUserId())){
                 userIdUserConnMap.get(userConn.getUserId()).put(userConn.getConnId(), userConn);
             } else {
                 userIdUserConnMap.put(userConn.getUserId(), new IntObjectHashMap<IUserConn>(1){{
-                    put(userConn.getConnId(), userConn);
+                    put(connId, userConn);
                 }});
             }
             counter.incrementAndGet();
@@ -113,6 +123,9 @@ public final class AuthMap implements IUserConnCallback {
             lock.lock();
             try {
                 connIdUserConnMap.values().iterator().next().close();
+
+            } catch (RemoteException ignored) {
+
             } finally {
                 lock.unlock();
             }
@@ -120,7 +133,7 @@ public final class AuthMap implements IUserConnCallback {
     }
 
     @Override
-    public void onUserConnClose(IUserConn userConn) {
+    public void onUserConnClose(IUserConn userConn) throws RemoteException {
         lock.lock();
         try {
             connIdUserConnMap.remove(userConn.getConnId());
@@ -132,5 +145,10 @@ public final class AuthMap implements IUserConnCallback {
         } finally {
             lock.unlock();
         }
+    }
+
+    @Override
+    public ICryptModuleConnection getSignCrypt() throws RemoteException {
+        return signCryptModule.getModuleConnection();
     }
 }

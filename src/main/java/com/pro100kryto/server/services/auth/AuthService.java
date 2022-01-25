@@ -4,6 +4,7 @@ import com.pro100kryto.server.livecycle.AShortLiveCycleImpl;
 import com.pro100kryto.server.livecycle.ILiveCycleImpl;
 import com.pro100kryto.server.module.IModuleConnectionSafe;
 import com.pro100kryto.server.modules.usermodel.connection.IUserModelModuleConnection;
+import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
 import com.pro100kryto.server.service.AService;
 import com.pro100kryto.server.service.BaseServiceSettings;
 import com.pro100kryto.server.service.ServiceConnectionParams;
@@ -16,6 +17,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
     @Getter
     private AuthMap authMap;
     private IModuleConnectionSafe<IUserModelModuleConnection> userModelModuleConnectionSafe;
+    private IModuleConnectionSafe<ICryptModuleConnection> signCryptModuleConnectionSafe;
 
     public AuthService(ServiceParams serviceParams) {
         super(serviceParams);
@@ -35,7 +37,10 @@ public final class AuthService extends AService<IAuthServiceConnection> {
 
     @Override
     public IAuthServiceConnection createServiceConnection(ServiceConnectionParams params) {
-        return new AuthServiceConnection(this, params);
+        return new AuthServiceConnection(this, params,
+                settings.getBooleanOrDefault("auth-multiconnections-enabled", false),
+                settings.getBooleanOrDefault("auth-reconnect-enabled", true)
+        );
     }
 
     @Override
@@ -47,25 +52,48 @@ public final class AuthService extends AService<IAuthServiceConnection> {
 
         @Override
         public void init() throws Throwable {
-            authMap = new AuthMap(settings.getIntOrDefault("auth-capacity", Integer.MAX_VALUE));
-            userModelModuleConnectionSafe = setupModuleConnectionSafe("userModel");
+            {
+                final String signCryptModuleName = settings.getOrDefault("module-signCrypt", "signCrypt");
+                initModuleOrWarn(signCryptModuleName);
+                signCryptModuleConnectionSafe = setupModuleConnectionSafe(signCryptModuleName);
+            }
+
+            {
+                authMap = new AuthMap(
+                        signCryptModuleConnectionSafe,
+                        settings.getIntOrDefault("auth-capacity", Integer.MAX_VALUE)
+                );
+            }
+
+            {
+                final String userModelModuleName = settings.getOrDefault("module-userModel", "userModel");
+                initModuleOrWarn(userModelModuleName);
+                userModelModuleConnectionSafe = setupModuleConnectionSafe(userModelModuleName);
+            }
         }
 
         @Override
         public void start() throws Throwable {
-
+            startModuleOrThrow(userModelModuleConnectionSafe.getModuleName());
+            startModuleOrThrow(signCryptModuleConnectionSafe.getModuleName());
         }
 
         @Override
         public void stopForce() {
+            closeModuleConnection(userModelModuleConnectionSafe);
+            closeModuleConnection(signCryptModuleConnectionSafe);
             authMap.closeAllAndClear();
         }
 
         @Override
         public void destroy() {
-            userModelModuleConnectionSafe.close();
-            userModelModuleConnectionSafe = null;
-            authMap = null;
+            userModelModuleConnectionSafe = closeModuleConnection(userModelModuleConnectionSafe);
+            signCryptModuleConnectionSafe = closeModuleConnection(signCryptModuleConnectionSafe);
+
+            if (authMap != null) {
+                authMap.closeAllAndClear();
+                authMap = null;
+            }
         }
     }
 }
