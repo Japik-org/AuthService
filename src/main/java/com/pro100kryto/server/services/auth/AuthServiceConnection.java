@@ -28,6 +28,32 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
+    public long createUser(String nickname, String email, byte[] pass) throws RemoteException, UserAlreadyExistsException {
+        if (!service.getLiveCycle().getStatus().isStarted()){
+            throw new IllegalStateException();
+        }
+
+        try {
+            final IUserModelData userModelData = service.getUserModel().getUserByKeyVal("nickname", nickname);
+            throw new UserAlreadyExistsException(
+                    service.getUserModel().getUserByKeyVal("nickname", nickname).getUserId()
+            );
+        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
+        }
+
+        try {
+            final IUserModelData userModelData = service.getUserModel().getUserByKeyVal("email", email);
+            throw new UserAlreadyExistsException(
+                    service.getUserModel().getUserByKeyVal("email", email).getUserId()
+            );
+        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
+        }
+
+        final IUserModelData userModelData = service.getUserModel().createUser(nickname, email, pass);
+        return userModelData.getUserId();
+    }
+
+    @Override
     public IUserConn authorizeByUserId(long userId, byte[] pass) throws AuthorizationException {
         if (!service.getLiveCycle().getStatus().isStarted()){
             throw new AuthorizationDisabledException();

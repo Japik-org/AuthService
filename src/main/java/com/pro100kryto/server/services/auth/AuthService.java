@@ -13,6 +13,8 @@ import com.pro100kryto.server.services.auth.connection.IAuthServiceConnection;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
+import java.rmi.RemoteException;
+
 public final class AuthService extends AService<IAuthServiceConnection> {
     @Getter
     private AuthMap authMap;
@@ -23,7 +25,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
         super(serviceParams);
     }
 
-    public IUserModelModuleConnection getUserModel() throws Throwable {
+    public IUserModelModuleConnection getUserModel() throws RemoteException {
         return userModelModuleConnectionSafe.getModuleConnection();
     }
 
