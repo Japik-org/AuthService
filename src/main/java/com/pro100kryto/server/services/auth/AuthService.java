@@ -1,17 +1,19 @@
 package com.pro100kryto.server.services.auth;
 
 import com.pro100kryto.server.livecycle.AShortLiveCycleImpl;
-import com.pro100kryto.server.livecycle.ILiveCycleImpl;
+import com.pro100kryto.server.livecycle.controller.ILiveCycleImplId;
+import com.pro100kryto.server.livecycle.controller.LiveCycleController;
+import com.pro100kryto.server.livecycle.controller.LiveCycleImplId;
 import com.pro100kryto.server.module.IModuleConnectionSafe;
-import com.pro100kryto.server.modules.usermodel.connection.IUserModelModuleConnection;
 import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
+import com.pro100kryto.server.modules.usermodel.connection.IUserModelModuleConnection;
 import com.pro100kryto.server.service.AService;
 import com.pro100kryto.server.service.BaseServiceSettings;
 import com.pro100kryto.server.service.ServiceConnectionParams;
 import com.pro100kryto.server.service.ServiceParams;
 import com.pro100kryto.server.services.auth.connection.IAuthServiceConnection;
 import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
+import lombok.Setter;
 
 import java.rmi.RemoteException;
 
@@ -30,11 +32,17 @@ public final class AuthService extends AService<IAuthServiceConnection> {
     }
 
     @Override
-    protected void setupSettingsBeforeInit() throws Throwable {
-        settings.put(BaseServiceSettings.KEY_CONNECTION_MULTIPLE_ENABLED, false);
-        settings.put(BaseServiceSettings.KEY_CONNECTION_CREATE_AFTER_INIT_ENABLED, true);
+    protected void initLiveCycleController(LiveCycleController liveCycleController) {
+        super.initLiveCycleController(liveCycleController);
 
-        super.setupSettingsBeforeInit();
+        liveCycleController.getInitImplQueue().put(new LiveCycleImplId(
+                "init settings", LiveCycleController.PRIORITY_HIGHEST
+        ), ()-> {
+            settings.put(BaseServiceSettings.KEY_CONNECTION_MULTIPLE_ENABLED, false);
+            settings.put(BaseServiceSettings.KEY_CONNECTION_CREATE_AFTER_INIT_ENABLED, true);
+        });
+
+        liveCycleController.putImplAll(new AuthServiceLiveCycleImpl());
     }
 
     @Override
@@ -45,12 +53,11 @@ public final class AuthService extends AService<IAuthServiceConnection> {
         );
     }
 
-    @Override
-    protected @NotNull ILiveCycleImpl createDefaultLiveCycleImpl() {
-        return new AuthServiceLiveCycleImpl();
-    }
-
-    private final class AuthServiceLiveCycleImpl extends AShortLiveCycleImpl {
+    private final class AuthServiceLiveCycleImpl extends AShortLiveCycleImpl implements ILiveCycleImplId {
+        @Getter
+        private final String name = "AuthServiceLiveCycleImpl";
+        @Getter @Setter
+        private int priority = LiveCycleController.PRIORITY_NORMAL;
 
         @Override
         public void init() throws Throwable {
