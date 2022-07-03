@@ -1,6 +1,6 @@
 package com.pro100kryto.server.services.auth;
 
-import com.pro100kryto.server.modules.usermodel.connection.IUserModelData;
+import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
 import com.pro100kryto.server.services.auth.connection.IUserConn;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -8,23 +8,23 @@ import lombok.RequiredArgsConstructor;
 import java.rmi.RemoteException;
 
 @RequiredArgsConstructor
-public final class UserConnFromUserModelData implements IUserConn {
+public final class UserConnFromUserModel implements IUserConn {
     private final IUserConnCallback callback;
     @Getter
     private final int connId;
     @Getter
-    private final IUserModelData userData;
+    private final IUserModel userData;
 
     private final byte[] secret;
 
     @Override
     public long getUserId() throws RemoteException {
-        return userData.getUserId();
+        return userData.getId();
     }
 
     @Override
     public String getNickname() throws RemoteException {
-        return userData.getNickname();
+        return userData.getUsername();
     }
 
     @Override

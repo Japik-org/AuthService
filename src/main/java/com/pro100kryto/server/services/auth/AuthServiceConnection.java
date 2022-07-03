@@ -1,6 +1,6 @@
 package com.pro100kryto.server.services.auth;
 
-import com.pro100kryto.server.modules.usermodel.connection.IUserModelData;
+import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
 import com.pro100kryto.server.service.AServiceConnection;
 import com.pro100kryto.server.service.ServiceConnectionParams;
 import com.pro100kryto.server.services.auth.connection.*;
@@ -28,39 +28,30 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public long createUser(String nickname, String email, byte[] pass) throws RemoteException, UserAlreadyExistsException {
-        if (!service.getLiveCycle().getStatus().isStarted()){
-            throw new IllegalStateException();
-        }
+    public long createUser(CreateUserInfo userInfo) throws RemoteException, UserAlreadyExistsException {
+        if (isClosed()) throw new IllegalStateException();
 
-        try {
-            final IUserModelData userModelData = service.getUserModel().getUserByKeyVal("nickname", nickname);
-            throw new UserAlreadyExistsException(
-                    service.getUserModel().getUserByKeyVal("nickname", nickname).getUserId()
-            );
-        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
-        }
+        try (final IUserModel userModel = service.getUserModel().createUser(userInfo.getUsername(), userInfo.getPass())) {
+            userModel.setAllVal(userInfo.getValues());
+            return userModel.getId();
 
-        try {
-            final IUserModelData userModelData = service.getUserModel().getUserByKeyVal("email", email);
-            throw new UserAlreadyExistsException(
-                    service.getUserModel().getUserByKeyVal("email", email).getUserId()
-            );
-        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
+        } catch (com.pro100kryto.server.modules.usermodel.connection.UserAlreadyExistsException existsException) {
+            long id = 0;
+            try {
+                id = service.getUserModel().getOneUserByKeyVal(existsException.getKey(), existsException.getVal())
+                        .getId();
+            } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
+            }
+            throw new UserAlreadyExistsException(id);
         }
-
-        final IUserModelData userModelData = service.getUserModel().createUser(nickname, email, pass);
-        return userModelData.getUserId();
     }
 
     @Override
     public IUserConn authorizeByUserId(long userId, byte[] pass) throws AuthorizationException {
-        if (!service.getLiveCycle().getStatus().isStarted()){
-            throw new AuthorizationDisabledException();
-        }
+        if (isClosed()) throw new IllegalStateException();
 
         try {
-            final IUserModelData userData = service.getUserModel().getUserByUserId(userId);
+            final IUserModel userData = service.getUserModel().getUserByUserId(userId);
             checkUserBeforeAuthorize(userData, pass);
             return service.getAuthMap().createConnAndPut(userData);
 
@@ -80,12 +71,8 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
 
     @Override
     public IUserConn authorizeByKeyVal(Object key, Object val, byte[] pass) throws AuthorizationException {
-        if (!service.getLiveCycle().getStatus().isStarted()){
-            throw new AuthorizationDisabledException();
-        }
-
         try {
-            final IUserModelData userData = service.getUserModel().getUserByKeyVal(key, val);
+            final IUserModel userData = service.getUserModel().getOneUserByKeyVal(key, val);
             checkUserBeforeAuthorize(userData, pass);
             return service.getAuthMap().createConnAndPut(userData);
 
@@ -102,19 +89,19 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
         }
     }
 
-    public void checkUserBeforeAuthorize(IUserModelData userData, byte[] pass)
+    public void checkUserBeforeAuthorize(IUserModel userData, byte[] pass)
             throws WrongUserPassException, UserAlreadyAuthorizedException, RemoteException {
 
         if (!userData.checkPass(pass)) {
-            throw new WrongUserPassException(userData.getUserId());
+            throw new WrongUserPassException(userData.getId());
         }
 
-        if (!multiconnEnabled && service.getAuthMap().containsByUserId(userData.getUserId())){
+        if (!multiconnEnabled && service.getAuthMap().containsByUserId(userData.getId())){
             if (allowReconnect){
-                dismissAllAuthorizationsByUserId(userData.getUserId());
+                dismissAllAuthorizationsByUserId(userData.getId());
             } else {
                 try {
-                    throw new UserAlreadyAuthorizedException(service.getAuthMap().getByUserId(userData.getUserId()).next());
+                    throw new UserAlreadyAuthorizedException(service.getAuthMap().getByUserId(userData.getId()).next());
                 } catch (NoSuchElementException ignored) {
                 }
             }

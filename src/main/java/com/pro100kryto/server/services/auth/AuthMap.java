@@ -1,8 +1,8 @@
 package com.pro100kryto.server.services.auth;
 
 import com.pro100kryto.server.module.IModuleConnectionSafe;
-import com.pro100kryto.server.modules.usermodel.connection.IUserModelData;
 import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
+import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
 import com.pro100kryto.server.services.auth.connection.IUserConn;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
@@ -75,7 +75,7 @@ public final class AuthMap implements IUserConnCallback {
         }
     }
 
-    public IUserConn createConnAndPut(IUserModelData userModelData) throws RemoteException {
+    public IUserConn createConnAndPut(IUserModel userModel) throws RemoteException {
         if (counter.get() == capacity){
             throw new IllegalStateException();
         }
@@ -85,24 +85,24 @@ public final class AuthMap implements IUserConnCallback {
 
             final int connId = connIdCounter.getAndIncrement();
 
-            final IUserConn userConn = new UserConnFromUserModelData(
+            final IUserConn userConn = new UserConnFromUserModel(
                     this,
                     connId,
-                    userModelData,
-                    getSignCrypt().combineSalt(
+                    userModel,
+                    getSignCrypt().combine(
                             ByteBuffer.allocate(Integer.SIZE/8)
                                     .order(ByteOrder.LITTLE_ENDIAN)
                                     .putInt(connId)
                                     .array(),
                             ByteBuffer.allocate(Long.SIZE/8)
                                     .order(ByteOrder.LITTLE_ENDIAN)
-                                    .putLong(userModelData.getUserId())
+                                    .putLong(userModel.getId())
                                     .array()
                     )
             );
 
             connIdUserConnMap.put(connId, userConn);
-            if (userIdUserConnMap.containsKey(userModelData.getUserId())){
+            if (userIdUserConnMap.containsKey(userModel.getId())){
                 userIdUserConnMap.get(userConn.getUserId()).put(userConn.getConnId(), userConn);
             } else {
                 userIdUserConnMap.put(userConn.getUserId(), new IntObjectHashMap<IUserConn>(1){{
