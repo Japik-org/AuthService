@@ -1,9 +1,9 @@
-package com.pro100kryto.server.services.auth;
+package com.japik.services.auth;
 
-import com.pro100kryto.server.module.IModuleConnectionSafe;
-import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
-import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
-import com.pro100kryto.server.services.auth.connection.IUserConn;
+import com.japik.module.IModuleConnectionSafe;
+import com.japik.modules.crypt.connection.ICryptModuleConnection;
+import com.japik.modules.usermodel.connection.IUserModel;
+import com.japik.services.auth.connection.IUserConn;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 

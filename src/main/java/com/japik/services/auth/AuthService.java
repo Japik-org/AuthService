@@ -1,17 +1,17 @@
-package com.pro100kryto.server.services.auth;
+package com.japik.services.auth;
 
-import com.pro100kryto.server.livecycle.AShortLiveCycleImpl;
-import com.pro100kryto.server.livecycle.controller.ILiveCycleImplId;
-import com.pro100kryto.server.livecycle.controller.LiveCycleController;
-import com.pro100kryto.server.livecycle.controller.LiveCycleImplId;
-import com.pro100kryto.server.module.IModuleConnectionSafe;
-import com.pro100kryto.server.modules.crypt.connection.ICryptModuleConnection;
-import com.pro100kryto.server.modules.usermodel.connection.IUserModelModuleConnection;
-import com.pro100kryto.server.service.AService;
-import com.pro100kryto.server.service.BaseServiceSettings;
-import com.pro100kryto.server.service.ServiceConnectionParams;
-import com.pro100kryto.server.service.ServiceParams;
-import com.pro100kryto.server.services.auth.connection.IAuthServiceConnection;
+import com.japik.livecycle.AShortLiveCycleImpl;
+import com.japik.livecycle.controller.ILiveCycleImplId;
+import com.japik.livecycle.controller.LiveCycleController;
+import com.japik.livecycle.controller.LiveCycleImplId;
+import com.japik.module.IModuleConnectionSafe;
+import com.japik.modules.crypt.connection.ICryptModuleConnection;
+import com.japik.modules.usermodel.connection.IUserModelModuleConnection;
+import com.japik.service.AService;
+import com.japik.service.BaseServiceSettings;
+import com.japik.service.ServiceConnectionParams;
+import com.japik.service.ServiceParams;
+import com.japik.services.auth.connection.IAuthServiceConnection;
 import lombok.Getter;
 import lombok.Setter;
 

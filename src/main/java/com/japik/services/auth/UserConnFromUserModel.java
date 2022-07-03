@@ -1,7 +1,7 @@
-package com.pro100kryto.server.services.auth;
+package com.japik.services.auth;
 
-import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
-import com.pro100kryto.server.services.auth.connection.IUserConn;
+import com.japik.modules.usermodel.connection.IUserModel;
+import com.japik.services.auth.connection.IUserConn;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 

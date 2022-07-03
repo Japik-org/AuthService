@@ -1,9 +1,11 @@
-package com.pro100kryto.server.services.auth;
+package com.japik.services.auth;
 
-import com.pro100kryto.server.modules.usermodel.connection.IUserModel;
-import com.pro100kryto.server.service.AServiceConnection;
-import com.pro100kryto.server.service.ServiceConnectionParams;
-import com.pro100kryto.server.services.auth.connection.*;
+import com.japik.modules.usermodel.connection.IUserModel;
+import com.japik.modules.usermodel.connection.UserAlreadyExistsException;
+import com.japik.modules.usermodel.connection.UserNotFoundException;
+import com.japik.service.AServiceConnection;
+import com.japik.service.ServiceConnectionParams;
+import com.japik.services.auth.connection.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
@@ -28,21 +30,21 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public long createUser(CreateUserInfo userInfo) throws RemoteException, UserAlreadyExistsException {
+    public long createUser(CreateUserInfo userInfo) throws RemoteException, com.japik.services.auth.connection.UserAlreadyExistsException {
         if (isClosed()) throw new IllegalStateException();
 
         try (final IUserModel userModel = service.getUserModel().createUser(userInfo.getUsername(), userInfo.getPass())) {
             userModel.setAllVal(userInfo.getValues());
             return userModel.getId();
 
-        } catch (com.pro100kryto.server.modules.usermodel.connection.UserAlreadyExistsException existsException) {
+        } catch (UserAlreadyExistsException existsException) {
             long id = 0;
             try {
                 id = service.getUserModel().getOneUserByKeyVal(existsException.getKey(), existsException.getVal())
                         .getId();
-            } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException ignored) {
+            } catch (UserNotFoundException ignored) {
             }
-            throw new UserAlreadyExistsException(id);
+            throw new com.japik.services.auth.connection.UserAlreadyExistsException(id);
         }
     }
 
@@ -55,8 +57,8 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
             checkUserBeforeAuthorize(userData, pass);
             return service.getAuthMap().createConnAndPut(userData);
 
-        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException userNotFoundException){
-            throw new UserNotFoundException(
+        } catch (UserNotFoundException userNotFoundException){
+            throw new com.japik.services.auth.connection.UserNotFoundException(
                     userNotFoundException.getKey(),
                     userNotFoundException.getVal()
             );
@@ -76,8 +78,8 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
             checkUserBeforeAuthorize(userData, pass);
             return service.getAuthMap().createConnAndPut(userData);
 
-        } catch (com.pro100kryto.server.modules.usermodel.connection.UserNotFoundException userNotFoundException) {
-            throw new UserNotFoundException(
+        } catch (UserNotFoundException userNotFoundException) {
+            throw new com.japik.services.auth.connection.UserNotFoundException(
                     userNotFoundException.getKey(), userNotFoundException.getVal()
             );
 
