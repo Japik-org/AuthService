@@ -1,11 +1,12 @@
 package com.japik.services.auth;
 
-import com.japik.modules.usermodel.connection.IUserModel;
-import com.japik.modules.usermodel.connection.UserAlreadyExistsException;
-import com.japik.modules.usermodel.connection.UserNotFoundException;
 import com.japik.service.AServiceConnection;
 import com.japik.service.ServiceConnectionParams;
 import com.japik.services.auth.connection.*;
+import com.japik.services.usersdatabase.shared.IUser;
+import com.japik.utils.databasequery.req.DatabaseQueryException;
+import com.japik.utils.databasequery.req.ObjectNotFoundException;
+import com.japik.utils.databasequery.req.OnResolveQueryException;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
@@ -30,91 +31,120 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public long createUser(CreateUserInfo userInfo) throws RemoteException, com.japik.services.auth.connection.UserAlreadyExistsException {
-        if (isClosed()) throw new IllegalStateException();
+    public long createUser(IAuthInsertUser userInfo) throws RemoteException, AuthorizationException {
+        try {
+            final IUser user = service.getUsersDatabase().getUsersCollection().prepareInsert(new InsertUserWrapper(userInfo));
+            user.queryInsert();
+            return user.reqId().resolveAndGetValue();
 
-        try (final IUserModel userModel = service.getUserModel().createUser(userInfo.getUsername(), userInfo.getPass())) {
-            userModel.setAllVal(userInfo.getValues());
-            return userModel.getId();
+        } catch (com.japik.services.usersdatabase.shared.UserAlreadyExistsException userAlreadyExistsException) {
+            final long id = userAlreadyExistsException.getId();
+            throw new AuthUserAlreadyExistsException(id);
 
-        } catch (UserAlreadyExistsException existsException) {
-            long id = 0;
-            try {
-                id = service.getUserModel().getOneUserByKeyVal(existsException.getKey(), existsException.getVal())
-                        .getId();
-            } catch (UserNotFoundException ignored) {
-            }
-            throw new com.japik.services.auth.connection.UserAlreadyExistsException(id);
+        } catch (RemoteException passException){
+            throw passException;
+
+        } catch (Throwable throwable) {
+            throw new AuthInternalErrorException(throwable);
         }
     }
 
     @Override
-    public IUserConn authorizeByUserId(long userId, byte[] pass) throws AuthorizationException {
-        if (isClosed()) throw new IllegalStateException();
-
+    public IUserConn authorizeByUserId(long userId, byte[] pass) throws RemoteException, AuthorizationException {
         try {
-            final IUserModel userData = service.getUserModel().getUserByUserId(userId);
-            checkUserBeforeAuthorize(userData, pass);
-            return service.getAuthMap().createConnAndPut(userData);
-
-        } catch (UserNotFoundException userNotFoundException){
-            throw new com.japik.services.auth.connection.UserNotFoundException(
-                    userNotFoundException.getKey(),
-                    userNotFoundException.getVal()
+            final IUser user = service.getUsersDatabase().getUsersCollection().selectUserById(userId);
+            checkUserBeforeAuthorize(userId, user, pass);
+            return service.getAuthMap().createConnAndPut(
+                    userId,
+                    user.reqUsername().resolveAndGetValue()
             );
 
-        } catch (AuthorizationException authorizationException){
-            throw authorizationException;
+        } catch (ObjectNotFoundException userNotFoundException){
+            throw new AuthUserNotFoundByIdException(userId);
+
+        } catch (RemoteException | AuthorizationException passException){
+            throw passException;
 
         } catch (Throwable throwable){
-            throw new AuthorizationInternalErrorException(throwable);
+            throw new AuthInternalErrorException(throwable);
         }
     }
 
     @Override
-    public IUserConn authorizeByKeyVal(Object key, Object val, byte[] pass) throws AuthorizationException {
+    public IUserConn authorizeByUsername(String username, byte[] pass) throws RemoteException, AuthorizationException {
         try {
-            final IUserModel userData = service.getUserModel().getOneUserByKeyVal(key, val);
-            checkUserBeforeAuthorize(userData, pass);
-            return service.getAuthMap().createConnAndPut(userData);
-
-        } catch (UserNotFoundException userNotFoundException) {
-            throw new com.japik.services.auth.connection.UserNotFoundException(
-                    userNotFoundException.getKey(), userNotFoundException.getVal()
+            final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByUsername(username);
+            final long userId = user.reqId().resolveAndGetValue();
+            checkUserBeforeAuthorize(userId, user, pass);
+            return service.getAuthMap().createConnAndPut(
+                    userId,
+                    username
             );
 
-        } catch (AuthorizationException authorizationException){
-            throw authorizationException;
+        } catch (ObjectNotFoundException userNotFoundException){
+            throw new AuthUserNotFoundByUsernameException(username);
+
+        } catch (RemoteException | AuthorizationException passException){
+            throw passException;
 
         } catch (Throwable throwable){
-            throw new AuthorizationInternalErrorException(throwable);
+            throw new AuthInternalErrorException(throwable);
         }
     }
 
-    public void checkUserBeforeAuthorize(IUserModel userData, byte[] pass)
-            throws WrongUserPassException, UserAlreadyAuthorizedException, RemoteException {
+    @Override
+    public IUserConn authorizeByEmail(String email, byte[] pass) throws RemoteException, AuthorizationException {
+        try {
+            final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByUsername(email);
+            final long userId = user.reqId().resolveAndGetValue();
+            checkUserBeforeAuthorize(userId, user, pass);
+            return service.getAuthMap().createConnAndPut(
+                    userId,
+                    user.reqUsername().resolveAndGetValue()
+            );
 
-        if (!userData.checkPass(pass)) {
-            throw new WrongUserPassException(userData.getId());
+        } catch (ObjectNotFoundException userNotFoundException){
+            throw new AuthUserNotFoundByEmailException(email);
+
+        } catch (RemoteException | AuthorizationException passException){
+            throw passException;
+
+        } catch (Throwable throwable){
+            throw new AuthInternalErrorException(throwable);
         }
+    }
 
-        if (!multiconnEnabled && service.getAuthMap().containsByUserId(userData.getId())){
-            if (allowReconnect){
-                dismissAllAuthorizationsByUserId(userData.getId());
-            } else {
-                try {
-                    throw new UserAlreadyAuthorizedException(service.getAuthMap().getByUserId(userData.getId()).next());
-                } catch (NoSuchElementException ignored) {
+    public void checkUserBeforeAuthorize(long userId, IUser user, byte[] pass) throws RemoteException,
+            AuthWrongUserPassException, AuthUserAlreadyAuthorizedException, ObjectNotFoundException {
+
+        try {
+            final boolean passCheck = user.reqVerifyPassword(pass).resolveAndGetValue();
+
+            if (!passCheck) throw new AuthWrongUserPassException(userId);
+
+            if (!multiconnEnabled && service.getAuthMap().containsByUserId(userId)) {
+                if (allowReconnect) {
+                    dismissAuthorizationsByUserId(userId);
+                } else {
+                    try {
+                        throw new AuthUserAlreadyAuthorizedException(
+                                service.getAuthMap().getByUserId(userId).next()
+                        );
+                    } catch (NoSuchElementException ignored) {
+                    }
                 }
             }
+
+        } catch (OnResolveQueryException | DatabaseQueryException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
-    public IUserConn getUserConnByConnId(int connId) throws UserConnNotFound {
+    public IUserConn getUserConnByConnId(int connId) throws AuthUserConnNotFoundException {
         final IUserConn userConn = service.getAuthMap().getByConnId(connId);
         if (userConn == null){
-            throw new UserConnNotFound(connId);
+            throw new AuthUserConnNotFoundException(connId);
         }
         return userConn;
     }
@@ -129,29 +159,44 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
         return service.getAuthMap().containsByUserId(userId);
     }
 
-
     @Override
-    public boolean dismissAuthorizationByConnId(int connId) throws RemoteException {
-        final IUserConn userConn = service.getAuthMap().getByConnId(connId);
-        if (userConn == null) return false;
-        if (userConn.isClosed()) return true;
-        userConn.close();
-        return true;
+    public boolean isAuthorizedByUsername(String username) throws RemoteException, AuthInternalErrorException {
+        try {
+            return isAuthorizedByUserId(
+                    service.getUsersDatabase().getUsersCollection()
+                            .selectUserByUsername(username)
+                            .reqId()
+                            .resolveAndGetValue());
+
+        } catch (ObjectNotFoundException e) {
+            return false;
+
+        } catch (DatabaseQueryException | OnResolveQueryException e) {
+            throw new AuthInternalErrorException(e);
+        }
     }
 
     @Override
-    public boolean dismissAllAuthorizationsByUserId(long userId) throws RemoteException {
-        final Iterator<IUserConn> userConns = service.getAuthMap().getByUserId(userId);
+    public void dismissAuthorizationByConnId(int connId) {
+        final UserConn userConn = service.getAuthMap().getByConnId(connId);
+        if (userConn == null || userConn.isClosed()) return;
+        userConn.close();
+    }
 
-        if (!userConns.hasNext()) return false;
+    @Override
+    public void dismissAuthorizationsByUserId(long userId) {
+        do {
+            final Iterator<UserConn> userConns = service.getAuthMap().getByUserId(userId);
 
-        while (userConns.hasNext()){
-            final IUserConn userConn = userConns.next();
-            if (userConn.isClosed()) continue;
-            userConn.close();
-        }
+            if (userConns.hasNext()) {
+                final UserConn userConn = userConns.next();
+                if (userConn.isClosed()) continue;
+                userConn.close();
 
-        return true;
+            } else {
+                break;
+            }
+        } while (true);
     }
 
 }

@@ -3,6 +3,8 @@ Manifest-Version: 1.0
 Name: Service-Impl
 Shared-Subtype: Auth
 Subtype: Auth
-Version: 2.0
+Version: 3.0
 Base-Package: com.japik
-Module-Shared-Subtype: UserModel
+Service-Shared-Subtype: UsersDatabase
+Module-Shared-Subtype: Crypt
+

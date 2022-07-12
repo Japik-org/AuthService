@@ -6,29 +6,26 @@ import com.japik.livecycle.controller.LiveCycleController;
 import com.japik.livecycle.controller.LiveCycleImplId;
 import com.japik.module.IModuleConnectionSafe;
 import com.japik.modules.crypt.connection.ICryptModuleConnection;
-import com.japik.modules.usermodel.connection.IUserModelModuleConnection;
-import com.japik.service.AService;
-import com.japik.service.BaseServiceSettings;
-import com.japik.service.ServiceConnectionParams;
-import com.japik.service.ServiceParams;
+import com.japik.service.*;
 import com.japik.services.auth.connection.IAuthServiceConnection;
+import com.japik.services.usersdatabase.shared.IUsersDatabaseServiceConnection;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.rmi.RemoteException;
 
+@Getter
 public final class AuthService extends AService<IAuthServiceConnection> {
-    @Getter
     private AuthMap authMap;
-    private IModuleConnectionSafe<IUserModelModuleConnection> userModelModuleConnectionSafe;
+    private IServiceConnectionSafe<IUsersDatabaseServiceConnection> usersDatabaseConnectionSafe;
     private IModuleConnectionSafe<ICryptModuleConnection> signCryptModuleConnectionSafe;
 
     public AuthService(ServiceParams serviceParams) {
         super(serviceParams);
     }
 
-    public IUserModelModuleConnection getUserModel() throws RemoteException {
-        return userModelModuleConnectionSafe.getModuleConnection();
+    public IUsersDatabaseServiceConnection getUsersDatabase() throws RemoteException {
+        return usersDatabaseConnectionSafe.getServiceConnection();
     }
 
     @Override
@@ -42,7 +39,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
             settings.put(BaseServiceSettings.KEY_CONNECTION_CREATE_AFTER_INIT_ENABLED, true);
         });
 
-        liveCycleController.putImplAll(new AuthServiceLiveCycleImpl());
+        liveCycleController.putImplAll(new AuthServiceLiveCycleImpl(this));
     }
 
     @Override
@@ -54,10 +51,15 @@ public final class AuthService extends AService<IAuthServiceConnection> {
     }
 
     private final class AuthServiceLiveCycleImpl extends AShortLiveCycleImpl implements ILiveCycleImplId {
+        private final AuthService service;
         @Getter
         private final String name = "AuthServiceLiveCycleImpl";
         @Getter @Setter
         private int priority = LiveCycleController.PRIORITY_NORMAL;
+
+        private AuthServiceLiveCycleImpl(AuthService service) {
+            this.service = service;
+        }
 
         @Override
         public void init() throws Throwable {
@@ -69,34 +71,32 @@ public final class AuthService extends AService<IAuthServiceConnection> {
 
             {
                 authMap = new AuthMap(
-                        signCryptModuleConnectionSafe,
+                        service,
                         settings.getIntOrDefault("auth-capacity", Integer.MAX_VALUE)
                 );
             }
 
             {
-                final String userModelModuleName = settings.getOrDefault("module-userModel", "userModel");
-                initModuleOrWarn(userModelModuleName);
-                userModelModuleConnectionSafe = setupModuleConnectionSafe(userModelModuleName);
+                final String usersDatabaseServiceName = settings.getOrDefault("service-usersDatabase", "usersDatabase");
+                initModuleOrWarn(usersDatabaseServiceName);
+                usersDatabaseConnectionSafe = setupServiceConnectionSafe(usersDatabaseServiceName);
             }
         }
 
         @Override
         public void start() throws Throwable {
-            startModuleOrThrow(userModelModuleConnectionSafe.getModuleName());
             startModuleOrThrow(signCryptModuleConnectionSafe.getModuleName());
         }
 
         @Override
         public void stopForce() {
-            closeModuleConnection(userModelModuleConnectionSafe);
-            closeModuleConnection(signCryptModuleConnectionSafe);
-            authMap.closeAllAndClear();
         }
 
         @Override
         public void destroy() {
-            userModelModuleConnectionSafe = closeModuleConnection(userModelModuleConnectionSafe);
+            authMap.closeAllAndClear();
+
+            usersDatabaseConnectionSafe = closeServiceConnection(usersDatabaseConnectionSafe);
             signCryptModuleConnectionSafe = closeModuleConnection(signCryptModuleConnectionSafe);
 
             if (authMap != null) {
