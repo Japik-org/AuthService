@@ -78,7 +78,6 @@ public final class AuthService extends AService<IAuthServiceConnection> {
 
             {
                 final String usersDatabaseServiceName = settings.getOrDefault("service-usersDatabase", "usersDatabase");
-                initModuleOrWarn(usersDatabaseServiceName);
                 usersDatabaseConnectionSafe = setupServiceConnectionSafe(usersDatabaseServiceName);
             }
         }
