@@ -5,6 +5,7 @@ import com.japik.service.ServiceConnectionParams;
 import com.japik.services.auth.connection.*;
 import com.japik.services.usersdatabase.shared.IUser;
 import com.japik.utils.databasequery.req.DatabaseQueryException;
+import com.japik.utils.databasequery.req.IGetFieldRequest;
 import com.japik.utils.databasequery.req.ObjectNotFoundException;
 import com.japik.utils.databasequery.req.OnResolveQueryException;
 import lombok.Getter;
@@ -31,7 +32,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public long createUser(IAuthInsertUser userInfo) throws RemoteException, AuthorizationException {
+    public Object createUser(IAuthInsertUser userInfo) throws RemoteException, AuthorizationException {
         try {
             final IUser user = service.getUsersDatabase().getUsersCollection().prepareInsert(new InsertUserWrapper(userInfo));
             user.queryInsert();
@@ -50,7 +51,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public IUserConn authorizeByUserId(long userId, byte[] pass) throws RemoteException, AuthorizationException {
+    public IUserConn authorizeByUserId(Object userId, byte[] pass) throws RemoteException, AuthorizationException {
         try {
             final IUser user = service.getUsersDatabase().getUsersCollection().selectUserById(userId);
             checkUserBeforeAuthorize(userId, user, pass);
@@ -71,10 +72,34 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
+    public IUserConn authorizeByUserIdString(String userIdString, byte[] pass) throws RemoteException, AuthorizationException {
+        try {
+            final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByIdString(userIdString);
+            final IGetFieldRequest<Object> userIdReq = user.reqId();
+            final IGetFieldRequest<String> usernameReq = user.reqUsername();
+            user.queryGet();
+            checkUserBeforeAuthorize(userIdReq.getValue(), user, pass);
+            return service.getAuthMap().createConnAndPut(
+                    userIdReq.getValue(),
+                    usernameReq.getValue()
+            );
+
+        } catch (ObjectNotFoundException userNotFoundException){
+            throw new AuthUserNotFoundByIdStringException(userIdString);
+
+        } catch (RemoteException | AuthorizationException passException){
+            throw passException;
+
+        } catch (Throwable throwable){
+            throw new AuthInternalErrorException(throwable);
+        }
+    }
+
+    @Override
     public IUserConn authorizeByUsername(String username, byte[] pass) throws RemoteException, AuthorizationException {
         try {
             final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByUsername(username);
-            final long userId = user.reqId().resolveAndGetValue();
+            final Object userId = user.reqId().resolveAndGetValue();
             checkUserBeforeAuthorize(userId, user, pass);
             return service.getAuthMap().createConnAndPut(
                     userId,
@@ -96,7 +121,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     public IUserConn authorizeByEmail(String email, byte[] pass) throws RemoteException, AuthorizationException {
         try {
             final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByUsername(email);
-            final long userId = user.reqId().resolveAndGetValue();
+            final Object userId = user.reqId().resolveAndGetValue();
             checkUserBeforeAuthorize(userId, user, pass);
             return service.getAuthMap().createConnAndPut(
                     userId,
@@ -114,7 +139,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
         }
     }
 
-    public void checkUserBeforeAuthorize(long userId, IUser user, byte[] pass) throws RemoteException,
+    public void checkUserBeforeAuthorize(Object userId, IUser user, byte[] pass) throws RemoteException,
             AuthWrongUserPassException, AuthUserAlreadyAuthorizedException, ObjectNotFoundException {
 
         try {
@@ -155,7 +180,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public boolean isAuthorizedByUserId(long userId) {
+    public boolean isAuthorizedByUserId(Object userId) {
         return service.getAuthMap().containsByUserId(userId);
     }
 
@@ -184,7 +209,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     }
 
     @Override
-    public void dismissAuthorizationsByUserId(long userId) {
+    public void dismissAuthorizationsByUserId(Object userId) {
         do {
             final Iterator<UserConn> userConns = service.getAuthMap().getByUserId(userId);
 

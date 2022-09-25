@@ -14,7 +14,7 @@ public final class UserConn implements IUserConn {
     private final byte[] secret;
     private boolean isClosed = false;
 
-    private final long userId;
+    private final Object userId;
     private final String username;
 
     @Override
