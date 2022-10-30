@@ -25,7 +25,17 @@ public final class AuthMap implements IUserConnCallback {
         this.service = service;
         this.capacity = capacity;
         connIdUserConnMap = new IntObjectHashMap<>(capacity);
+
+        // fix memory allocation
+        connIdUserConnMap.put(0, null);
+        connIdUserConnMap.remove(0);
+
         userIdUserConnMap = new HashMap<>(capacity);
+
+        // fix memory allocation
+        userIdUserConnMap.put(this, null);
+        userIdUserConnMap.remove(this);
+
         counter = new AtomicInteger(0);
     }
 
@@ -91,9 +101,10 @@ public final class AuthMap implements IUserConnCallback {
             if (userIdUserConnMap.containsKey(userId)){
                 userIdUserConnMap.get(userConn.getUserId()).put(userConn.getConnId(), userConn);
             } else {
-                userIdUserConnMap.put(userConn.getUserId(), new IntObjectHashMap<UserConn>(1){{
-                    put(connId, userConn);
-                }});
+                final IntObjectHashMap<UserConn> map1 = new IntObjectHashMap<UserConn>(1);
+                map1.put(connId, userConn);
+                final Object userId2 = userConn.getUserId();
+                userIdUserConnMap.put(userId2, map1);
             }
             counter.incrementAndGet();
 
