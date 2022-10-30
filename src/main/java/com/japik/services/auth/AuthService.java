@@ -72,7 +72,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
             {
                 authMap = new AuthMap(
                         service,
-                        settings.getIntOrDefault("auth-capacity", Integer.MAX_VALUE)
+                        settings.getIntOrDefault("auth-capacity", 1024)
                 );
             }
 
