@@ -8,6 +8,8 @@
     <artifactId>auth-service</artifactId>
     <version>3.1</version>
 
+    <name>Auth Service</name>
+
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
