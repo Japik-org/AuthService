@@ -36,7 +36,7 @@
         <dependency>
             <groupId>com.japik.services</groupId>
             <artifactId>usersdatabase-service-shared</artifactId>
-            <version>[0.1, 0.2)</version>
+            <version>[0.2, 0.3)</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
