@@ -25,7 +25,7 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     private boolean allowReconnect;
 
     public AuthServiceConnection(@NotNull AuthService service, ServiceConnectionParams params,
-                                 boolean multiconnEnabled, boolean allowReconnect) {
+                                 boolean multiconnEnabled, boolean allowReconnect) throws RemoteException {
         super(service, params);
         this.multiconnEnabled = multiconnEnabled;
         this.allowReconnect = allowReconnect;

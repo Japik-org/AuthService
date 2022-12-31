@@ -43,7 +43,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
     }
 
     @Override
-    public IAuthServiceConnection createServiceConnection(ServiceConnectionParams params) {
+    public IAuthServiceConnection createServiceConnection(ServiceConnectionParams params) throws RemoteException {
         return new AuthServiceConnection(this, params,
                 settings.getBooleanOrDefault("auth-multiconnections-enabled", false),
                 settings.getBooleanOrDefault("auth-reconnect-enabled", true)
