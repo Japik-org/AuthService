@@ -2,10 +2,10 @@ package com.japik.services.auth;
 
 import com.japik.modules.crypt.connection.ICryptModuleConnection;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
-import org.eclipse.collections.impl.map.mutable.primitive.LongObjectHashMap;
 
 import java.rmi.RemoteException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class AuthMap implements IUserConnCallback {
     private final AuthService service;
     private final IntObjectHashMap<UserConn> connIdUserConnMap;
-    private final LongObjectHashMap< IntObjectHashMap<UserConn> > userIdUserConnMap;
+    private final HashMap<Object, IntObjectHashMap<UserConn> > userIdUserConnMap;
 
     private final int capacity;
     private final AtomicInteger counter;
@@ -25,7 +25,17 @@ public final class AuthMap implements IUserConnCallback {
         this.service = service;
         this.capacity = capacity;
         connIdUserConnMap = new IntObjectHashMap<>(capacity);
-        userIdUserConnMap = new LongObjectHashMap<>(capacity);
+
+        // fix memory allocation
+        connIdUserConnMap.put(0, null);
+        connIdUserConnMap.remove(0);
+
+        userIdUserConnMap = new HashMap<>(capacity);
+
+        // fix memory allocation
+        userIdUserConnMap.put(this, null);
+        userIdUserConnMap.remove(this);
+
         counter = new AtomicInteger(0);
     }
 
@@ -38,7 +48,7 @@ public final class AuthMap implements IUserConnCallback {
         }
     }
 
-    public boolean containsByUserId(long userId){
+    public boolean containsByUserId(Object userId){
         lock.lock();
         try {
             return userIdUserConnMap.containsKey(userId);
@@ -56,7 +66,7 @@ public final class AuthMap implements IUserConnCallback {
         }
     }
 
-    public Iterator<UserConn> getByUserId(long userId){
+    public Iterator<UserConn> getByUserId(Object userId){
         lock.lock();
         try {
             return userIdUserConnMap.get(userId).values().iterator();
@@ -69,7 +79,7 @@ public final class AuthMap implements IUserConnCallback {
         }
     }
 
-    public UserConn createConnAndPut(long userId, String username) throws RemoteException {
+    public UserConn createConnAndPut(Object userId, String username) throws RemoteException {
         if (counter.get() == capacity){
             throw new IllegalStateException();
         }
@@ -91,9 +101,10 @@ public final class AuthMap implements IUserConnCallback {
             if (userIdUserConnMap.containsKey(userId)){
                 userIdUserConnMap.get(userConn.getUserId()).put(userConn.getConnId(), userConn);
             } else {
-                userIdUserConnMap.put(userConn.getUserId(), new IntObjectHashMap<UserConn>(1){{
-                    put(connId, userConn);
-                }});
+                final IntObjectHashMap<UserConn> map1 = new IntObjectHashMap<UserConn>(1);
+                map1.put(connId, userConn);
+                final Object userId2 = userConn.getUserId();
+                userIdUserConnMap.put(userId2, map1);
             }
             counter.incrementAndGet();
 

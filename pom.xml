@@ -5,8 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.japik.services</groupId>
-    <artifactId>AuthService</artifactId>
-    <version>3.0</version>
+    <artifactId>auth-service</artifactId>
+    <version>3.1</version>
+
+    <name>Auth Service</name>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -16,24 +18,122 @@
     <dependencies>
         <dependency>
             <groupId>com.japik</groupId>
-            <artifactId>Japik</artifactId>
-            <version>[0.6.0, 0.7.0)</version>
+            <artifactId>japik</artifactId>
+            <version>[0.7.0, 0.8.0)</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.japik.services</groupId>
-            <artifactId>AuthService-connection</artifactId>
+            <artifactId>auth-service-shared</artifactId>
             <version>[3.0, 4.0)</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.japik.modules</groupId>
-            <artifactId>CryptModule-connection</artifactId>
+            <artifactId>cryptmodule-shared</artifactId>
             <version>[2.0, 3.0)</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.japik.services</groupId>
-            <artifactId>UsersDatabaseService-connection</artifactId>
-            <version>[0.1, 0.2)</version>
+            <artifactId>usersdatabase-service-shared</artifactId>
+            <version>[0.2, 0.3)</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <finalName>auth-service-impl-${project.version}</finalName>
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.10.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>2.2-beta-5</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>2.10</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.2.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>src</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id> <!-- this is used for inheritance merges -->
+                        <phase>package</phase> <!-- bind to the packaging phase -->
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestSections>
+                            <manifestSection>
+                                <name>Service-Impl</name>
+                                <manifestEntries>
+                                    <Shared-Subtype>Auth</Shared-Subtype>
+                                    <Subtype>Auth</Subtype>
+                                    <Version>${project.version}</Version>
+                                    <Base-Package>com.japik</Base-Package>
+                                    <Service-Shared-Subtype>UsersDatabase</Service-Shared-Subtype>
+                                    <Module-Shared-Subtype>Crypt</Module-Shared-Subtype>
+                                </manifestEntries>
+                            </manifestSection>
+                        </manifestSections>
+                    </archive>
+                    <outputDirectory>${project.basedir}/target/out/services</outputDirectory>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-dependency</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/out/libs</outputDirectory>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <excludeScope>provided</excludeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

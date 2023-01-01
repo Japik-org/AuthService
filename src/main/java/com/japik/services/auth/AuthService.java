@@ -43,7 +43,7 @@ public final class AuthService extends AService<IAuthServiceConnection> {
     }
 
     @Override
-    public IAuthServiceConnection createServiceConnection(ServiceConnectionParams params) {
+    public IAuthServiceConnection createServiceConnection(ServiceConnectionParams params) throws RemoteException {
         return new AuthServiceConnection(this, params,
                 settings.getBooleanOrDefault("auth-multiconnections-enabled", false),
                 settings.getBooleanOrDefault("auth-reconnect-enabled", true)
@@ -72,13 +72,12 @@ public final class AuthService extends AService<IAuthServiceConnection> {
             {
                 authMap = new AuthMap(
                         service,
-                        settings.getIntOrDefault("auth-capacity", Integer.MAX_VALUE)
+                        settings.getIntOrDefault("auth-capacity", 1024)
                 );
             }
 
             {
                 final String usersDatabaseServiceName = settings.getOrDefault("service-usersDatabase", "usersDatabase");
-                initModuleOrWarn(usersDatabaseServiceName);
                 usersDatabaseConnectionSafe = setupServiceConnectionSafe(usersDatabaseServiceName);
             }
         }
