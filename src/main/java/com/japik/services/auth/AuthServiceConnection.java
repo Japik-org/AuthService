@@ -4,10 +4,7 @@ import com.japik.service.AServiceConnection;
 import com.japik.service.ServiceConnectionParams;
 import com.japik.services.auth.connection.*;
 import com.japik.services.usersdatabase.shared.IUser;
-import com.japik.utils.databasequery.req.DatabaseQueryException;
-import com.japik.utils.databasequery.req.IGetFieldRequest;
-import com.japik.utils.databasequery.req.ObjectNotFoundException;
-import com.japik.utils.databasequery.req.OnResolveQueryException;
+import com.japik.utils.databasequery.req.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
@@ -121,11 +118,13 @@ public final class AuthServiceConnection extends AServiceConnection<AuthService,
     public IUserConn authorizeByEmail(String email, byte[] pass) throws RemoteException, AuthorizationException {
         try {
             final IUser user = service.getUsersDatabase().getUsersCollection().selectUserByUsername(email);
-            final Object userId = user.reqId().resolveAndGetValue();
-            checkUserBeforeAuthorize(userId, user, pass);
+            final IGetFieldRequest<Object> userId = user.reqId();
+            final IGetFieldRequest<String> username = user.reqUsername();
+            user.queryGet();
+            checkUserBeforeAuthorize(userId.getValue(), user, pass);
             return service.getAuthMap().createConnAndPut(
                     userId,
-                    user.reqUsername().resolveAndGetValue()
+                    username.getValue()
             );
 
         } catch (ObjectNotFoundException userNotFoundException){
